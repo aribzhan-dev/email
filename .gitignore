@@ -1,0 +1,8 @@
+.env
+.DS_Store
+.idea
+uploads/
+alembic.ini
+alembic/
+Pipfile
+Pipfile.lock
