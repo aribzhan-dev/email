@@ -6,17 +6,16 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.db import Base
 
 
-class EmailAttachment(Base):
-    __tablename__ = "email_attachments"
+class ChatAttachment(Base):
+    __tablename__ = "chat_attachments"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
 
     message_id: Mapped[int] = mapped_column(
-        ForeignKey("email_messages.id", ondelete="CASCADE"),
+        ForeignKey("chat_messages.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-
     file_name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     file_path: Mapped[str] = mapped_column(String(500), nullable=False)
     file_type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
@@ -30,9 +29,9 @@ class EmailAttachment(Base):
     )
 
     message = relationship(
-        "app.modules.email.models.message.EmailMessage",
+        "app.modules.chat.models.message.ChatMessage",
         back_populates="attachments",
     )
 
     def __repr__(self) -> str:
-        return f"<EmailAttachment id={self.id} file_name={self.file_name!r}>"
+        return f"<ChatAttachment id={self.id} file_name={self.file_name!r}>"

@@ -1,27 +1,35 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import asyncio
+from app.modules.email.routes import router as email_router
+from app.modules.chat.routes import router as chat_router
+from app.modules.email.services.listener import start_email_listener
+from app.core.config import get_settings
 
-from app.router import message
-from app.core.db import engine, Base
-from app.services.email_reader import listen_for_emails_async
+settings = get_settings()
+
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    task = asyncio.create_task(listen_for_emails_async())
+    print("🚀 App starting...")
+    asyncio.create_task(start_email_listener())
 
     yield
 
-    task.cancel()
-    try:
-        await task
-    except asyncio.CancelledError:
-        pass
+    print("🛑 App shutting down...")
 
 
-app = FastAPI(lifespan=lifespan)
-app.include_router(message.router)
+app = FastAPI(
+    title="Inbox System API",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+app.include_router(email_router, prefix="/api/email")
+app.include_router(chat_router, prefix="/api/whatsapp")
+
+
+@app.get("/")
+async def root():
+    return {"status": "ok"}

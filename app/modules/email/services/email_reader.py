@@ -4,7 +4,7 @@ from imapclient import IMAPClient
 
 from app.core.config import get_settings
 from app.core.db import AsyncSessionLocal
-from app.models.message import Message
+from app.modules.email.models.message import EmailMessage
 
 
 def extract_body(msg) -> str:
@@ -22,13 +22,13 @@ def extract_body(msg) -> str:
 async def save_to_db(from_email: str, subject: str, body: str):
     settings = get_settings()
     async with AsyncSessionLocal() as session:
-        message = Message(
+        email_message = EmailMessage(
             sender_email=from_email,
             receiver_email=settings.SMTP_USER,
             subject=subject or "(mavzu yo'q)",
             body=body or "",
         )
-        session.add(message)
+        session.add(email_message)
         await session.commit()
         print(f"✅ DB ga saqlandi: {subject}")
 

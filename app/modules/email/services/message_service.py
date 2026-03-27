@@ -3,10 +3,10 @@ from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
 from fastapi import UploadFile
-from app.models.attachment import Attachment
+from app.modules.email.models import EmailAttachment
 from app.core.config import get_settings
-from app.models.message import Message
-from app.services.email_service import send_email
+from app.modules.email.models.message import EmailMessage
+from app.modules.email.services.email_service import send_email
 
 UPLOAD_DIR = "uploads"
 
@@ -21,13 +21,13 @@ async def send_message(
     settings = get_settings()
     os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-    message = Message(
+    email_message = EmailMessage(
         sender_email=settings.SMTP_USER,
         receiver_email=receiver_email,
         subject=subject,
         body=body,
     )
-    db.add(message)
+    db.add(email_message)
     await db.flush()
 
     saved_files = []
@@ -35,14 +35,14 @@ async def send_message(
         if not file or not file.filename:
             continue
 
-        file_path = os.path.join(UPLOAD_DIR, f"{message.id}_{file.filename}")
+        file_path = os.path.join(UPLOAD_DIR, f"{email_message.id}_{file.filename}")
 
         content = await file.read()
         with open(file_path, "wb") as f:
             f.write(content)
 
-        attachment = Attachment(
-            message_id=message.id,
+        attachment = EmailAttachment(
+            message_id=email_message.id,
             file_name=file.filename,
             file_path=file_path,
             file_type=file.content_type or "application/octet-stream",
@@ -53,7 +53,7 @@ async def send_message(
         saved_files.append(file_path)
 
     await db.commit()
-    await db.refresh(message)
+    await db.refresh(email_message)
 
     await send_email(
         to_email=receiver_email,
@@ -62,7 +62,7 @@ async def send_message(
         file_paths=saved_files,
     )
 
-    return message
+    return email_message
 
 
 async def get_messages(
@@ -71,18 +71,18 @@ async def get_messages(
     filter: str = "all",
 ):
     if filter == "sent":
-        condition = Message.sender_email == email
+        condition = EmailMessage.sender_email == email
     elif filter == "received":
-        condition = Message.receiver_email == email
+        condition = EmailMessage.receiver_email == email
     else:
         condition = or_(
-            Message.sender_email == email,
-            Message.receiver_email == email,
+            EmailMessage.sender_email == email,
+            EmailMessage.receiver_email == email,
         )
 
     result = await db.execute(
-        select(Message)
+        select(EmailMessage)
         .where(condition)
-        .order_by(Message.created_at.desc())
+        .order_by(EmailMessage.created_at.desc())
     )
     return result.scalars().all()

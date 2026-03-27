@@ -7,7 +7,7 @@ from app.modules.email.schemas.message import MessageResponse
 from app.modules.email.services.message_service import send_message, get_messages
 
 
-router = APIRouter(prefix="/messages/email", tags=["Emails"])
+router = APIRouter(prefix="", tags=["Emails"])
 
 
 @router.post("/send", response_model=MessageResponse)
