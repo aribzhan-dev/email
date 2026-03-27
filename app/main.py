@@ -4,6 +4,7 @@ import asyncio
 from app.modules.email.routes import router as email_router
 from app.modules.chat.routes import router as chat_router
 from app.modules.email.services.listener import start_email_listener
+from app.modules.user.routes import router as user_router
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -26,6 +27,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.include_router(user_router, prefix="/api")
 app.include_router(email_router, prefix="/api/email")
 app.include_router(chat_router, prefix="/api/whatsapp")
 
