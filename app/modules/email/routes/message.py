@@ -3,8 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
 from app.core.db import get_db
-from app.schemas.message import MessageResponse
-from app.services.message_service import send_message, get_messages
+from app.modules.email.schemas.message import MessageResponse
+from app.modules.email.services.message_service import send_message, get_messages
 
 
 router = APIRouter(prefix="/messages/email", tags=["Emails"])
