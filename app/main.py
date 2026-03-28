@@ -6,6 +6,7 @@ from app.modules.chat.routes import router as chat_router
 from app.modules.email.services.listener import start_email_listener
 from app.modules.user.routes import router as user_router
 from app.core.config import get_settings
+from app.modules.files.routes import router as file_router
 
 settings = get_settings()
 
@@ -28,6 +29,7 @@ app = FastAPI(
 )
 
 app.include_router(user_router, prefix="/api")
+app.include_router(file_router, prefix="/api")
 app.include_router(email_router, prefix="/api/email")
 app.include_router(chat_router, prefix="/api/whatsapp")
 

@@ -5,6 +5,8 @@ from functools import lru_cache
 class Settings(BaseSettings):
     DATABASE_URL: str
 
+    UPLOAD_DIR: str = "./uploads"
+
     SMTP_HOST: str
     SMTP_PORT: int
     SMTP_USER: str
