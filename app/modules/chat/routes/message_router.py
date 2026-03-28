@@ -16,9 +16,13 @@ async def send_message_endpoint(
     sender_id: int = Form(...),
     text: Optional[str] = Form(None),
     reply_to_id: Optional[int] = Form(None),
-    files: Optional[List[UploadFile]] = File(None),
+    file1: UploadFile = File(default=None),
+    file2: UploadFile = File(default=None),
+    file3: UploadFile = File(default=None),
     db: AsyncSession = Depends(get_db),
 ):
+    files = [f for f in [file1, file2, file3] if f and f.filename]
+
     return await send_message(
         db=db,
         chat_id=chat_id,

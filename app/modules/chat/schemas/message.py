@@ -28,7 +28,6 @@ class MessageResponse(BaseModel):
     text: Optional[str]
     message_type: str
     created_at: datetime
-    attachments: List[AttachmentResponse] = []
 
     class Config:
         from_attributes = True

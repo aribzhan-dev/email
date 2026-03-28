@@ -23,10 +23,9 @@ async def send_message(
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
 
-    if reply_to_id:
-        reply_msg = await db.get(ChatMessage, reply_to_id)
-        if not reply_msg:
-            raise HTTPException(status_code=404, detail="Reply message not found")
+    if reply_to_id == 0:
+        reply_to_id = None
+
 
     message_type = MessageType.TEXT
 
