@@ -50,7 +50,8 @@ async def send_message(
         sender_id=sender_id,
         text=data.text,
         message_type=MessageType.TEXT,
-        reply_to_id=reply_to_id,
+        reply_to_id=data.reply_to if data.reply_to else None,
+        mentions=data.mentions or [],
     )
 
     db.add(message)
@@ -104,9 +105,10 @@ async def send_media(
     message = ChatMessage(
         chat_id=chat_id,
         sender_id=sender_id,
-        text=data.caption,
-        message_type=detect_type(data.mime),
-        reply_to_id=reply_to_id,
+        text=data.text,
+        message_type=MessageType.TEXT,
+        reply_to_id=data.reply_to if data.reply_to else None,
+        mentions=data.mentions or [],
     )
 
     db.add(message)
@@ -152,6 +154,18 @@ async def send_media(
             "timestamp": message.created_at.isoformat(),
         },
     )
+
+    if data.mentions:
+        for user_id in data.mentions:
+            await manager.send_to_user(
+                user_id,
+                {
+                    "type": "mention",
+                    "chat_id": chat_id,
+                    "message_id": message.id,
+                    "from_user": sender_id,
+                },
+            )
 
     return message
 

@@ -7,11 +7,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.common.enums.message_type import MessageType
 from app.core.db import Base
 
-
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Text, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Text, func, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.common.enums.message_type import MessageType
@@ -52,6 +51,7 @@ class ChatMessage(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+    mentions: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
 
     chat = relationship(
         "app.modules.chat.models.chat.Chat",

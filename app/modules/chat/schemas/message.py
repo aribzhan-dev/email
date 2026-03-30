@@ -31,6 +31,7 @@ class MessageResponse(BaseModel):
 class SendMessageSchema(BaseModel):
     text: str
     reply_to: Optional[int] = None
+    mentions: Optional[list[int]] = None
 
 
 class SendMediaSchema(BaseModel):

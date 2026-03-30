@@ -1,8 +1,7 @@
 from datetime import datetime
-
-from sqlalchemy import Boolean, DateTime, func
+from typing import Optional
+from sqlalchemy import Boolean, DateTime, func, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
 from app.core.db import Base
 
 
@@ -16,7 +15,7 @@ class Chat(Base):
         default=False,
         nullable=False,
     )
-
+    name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -29,7 +28,6 @@ class Chat(Base):
         back_populates="chat",
         cascade="all, delete-orphan",
     )
-
     messages = relationship(
         "app.modules.chat.models.message.ChatMessage",
         back_populates="chat",
