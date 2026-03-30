@@ -34,7 +34,7 @@ class Chat(Base):
         "app.modules.chat.models.message.ChatMessage",
         back_populates="chat",
         cascade="all, delete-orphan",
-        order_by="app.modules.chat.models.message.ChatMessage.created_at.asc()",
+        order_by="ChatMessage.created_at.asc()"
     )
 
     def __repr__(self) -> str:
