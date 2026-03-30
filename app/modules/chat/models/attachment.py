@@ -9,24 +9,16 @@ from app.core.db import Base
 class ChatAttachment(Base):
     __tablename__ = "chat_attachments"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
 
     message_id: Mapped[int] = mapped_column(
         ForeignKey("chat_messages.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
     )
-    file_name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
-    file_path: Mapped[str] = mapped_column(String(500), nullable=False)
-    file_type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    file_size: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-        index=True,
-    )
+    path: Mapped[str] = mapped_column(String)
+    mime: Mapped[str] = mapped_column(String)
+    name: Mapped[str] = mapped_column(String)
+    size: Mapped[int] = mapped_column(Integer)
 
     message = relationship(
         "app.modules.chat.models.message.ChatMessage",

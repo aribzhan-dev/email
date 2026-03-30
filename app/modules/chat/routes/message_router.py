@@ -1,57 +1,81 @@
-from fastapi import APIRouter, Depends, UploadFile, File, Form, Body
+from fastapi import APIRouter, Depends, Query
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
 
 from app.core.db import get_db
-from app.modules.chat.services.message_service import send_message, get_chat_messages, update_message, delete_message
-from app.modules.chat.schemas.message import MessageResponse
 
+from app.modules.chat.schemas.message import (
+    SendMessageSchema,
+    SendMediaSchema,
+    MessageResponse,
+    PaginatedMessageResponse,
+)
 
-router = APIRouter(prefix="/messages", tags=["Chat Messages"])
+from app.modules.chat.services.message_service import (
+    send_message,
+    send_media,
+    get_chat_messages,
+    update_message,
+    delete_message,
+)
+
+from app.modules.chat.utils.mapper import map_to_response
+
+router = APIRouter(prefix="/messages", tags=["Whatsapp"])
 
 
 @router.post("/send", response_model=MessageResponse)
-async def send_message_endpoint(
-    chat_id: int = Form(...),
-    sender_id: int = Form(...),
-    text: Optional[str] = Form(None),
-    reply_to_id: Optional[int] = Form(None),
-    file1: UploadFile = File(default=None),
-    file2: UploadFile = File(default=None),
-    file3: UploadFile = File(default=None),
-    db: AsyncSession = Depends(get_db),
-):
-    files = [f for f in [file1, file2, file3] if f and f.filename]
-
-    return await send_message(
-        db=db,
-        chat_id=chat_id,
-        sender_id=sender_id,
-        text=text,
-        files=files,
-        reply_to_id=reply_to_id,
-    )
-
-
-@router.get("/{chat_id}", response_model=List[MessageResponse])
-async def get_messages_endpoint(
+async def send_text_message(
     chat_id: int,
+    sender_id: int,
+    data: SendMessageSchema,
     db: AsyncSession = Depends(get_db),
 ):
-    return await get_chat_messages(db, chat_id)
+    message = await send_message(db, chat_id, sender_id, data)
+    return map_to_response(message)
 
 
-@router.put("/{message_id}")
-async def update_message_endpoint(
+@router.post("/send-media", response_model=MessageResponse)
+async def send_media_message(
+    chat_id: int,
+    sender_id: int,
+    data: SendMediaSchema,
+    db: AsyncSession = Depends(get_db),
+):
+    message = await send_media(db, chat_id, sender_id, data)
+    return map_to_response(message)
+
+
+@router.get("/{chat_id}", response_model=PaginatedMessageResponse)
+async def get_messages(
+    chat_id: int,
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await get_chat_messages(db, chat_id, page, limit)
+
+    return {
+        "items": [map_to_response(m) for m in result["items"]],
+        "total": result["total"],
+        "page": result["page"],
+        "limit": result["limit"],
+    }
+
+
+@router.put("/{message_id}", response_model=MessageResponse)
+async def edit_message(
     message_id: int,
-    new_text: str = Body(...),
+    text: str,
     db: AsyncSession = Depends(get_db),
 ):
-    return await update_message(db, message_id, new_text)
+    message = await update_message(db, message_id, text)
+    return map_to_response(message)
+
 
 
 @router.delete("/{message_id}")
-async def delete_message_endpoint(
+async def remove_message(
     message_id: int,
     db: AsyncSession = Depends(get_db),
 ):

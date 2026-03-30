@@ -1,33 +1,53 @@
-from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
+from pydantic import BaseModel, Field
+
+from app.common.enums.message_type import MessageType
 
 
-class MessageCreate(BaseModel):
-    chat_id: int
-    sender_id: int
-    text: Optional[str] = None
-    reply_to_id: Optional[int] = None
-
-
-class AttachmentResponse(BaseModel):
-    id: int
-    file_name: str
-    file_path: str
-    file_type: str
-    file_size: int
-
-    class Config:
-        from_attributes = True
+class Media(BaseModel):
+    url: Optional[str] = None
+    mime: Optional[str] = None
+    name: Optional[str] = None
+    size: Optional[int] = None
+    extra: Dict[str, Any] = Field(default_factory=dict)
 
 
 class MessageResponse(BaseModel):
     id: int
     chat_id: int
+    type: MessageType
+
+    text: Optional[str] = None
+    media: Optional[Media] = None
+
     sender_id: int
-    text: Optional[str]
-    message_type: str
-    created_at: datetime
+    timestamp: datetime
 
     class Config:
         from_attributes = True
+
+
+class SendMessageSchema(BaseModel):
+    text: str
+    reply_to: Optional[int] = None
+
+
+class SendMediaSchema(BaseModel):
+    url: str
+    caption: Optional[str] = None
+    file_name: str
+    mime: str
+    size: int
+    reply_to: Optional[int] = None
+
+
+class MessageListResponse(BaseModel):
+    messages: List[MessageResponse]
+
+
+class PaginatedMessageResponse(BaseModel):
+    items: List[MessageResponse]
+    total: int
+    page: int
+    limit: int
