@@ -1,7 +1,8 @@
 from typing import Optional
+from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 from sqlalchemy.orm import selectinload
 
 from fastapi import HTTPException
@@ -9,16 +10,11 @@ from fastapi import HTTPException
 from app.modules.chat.models.message import ChatMessage
 from app.modules.chat.models.chat import Chat
 from app.modules.chat.models.attachment import ChatAttachment
-
-from app.modules.chat.schemas.message import (
-    SendMessageSchema,
-    SendMediaSchema,
-)
-
+from app.modules.chat.websocket.manager import manager
+from app.modules.chat.schemas.message import SendMessageSchema, SendMediaSchema
 from app.common.enums.message_type import MessageType
 
 
-# 🔥 HELPER
 def detect_type(mime: str) -> MessageType:
     if mime.startswith("image"):
         return MessageType.IMAGE
@@ -30,7 +26,6 @@ def detect_type(mime: str) -> MessageType:
         return MessageType.FILE
 
 
-
 async def send_message(
     db: AsyncSession,
     chat_id: int,
@@ -39,19 +34,50 @@ async def send_message(
 ):
     chat = await db.get(Chat, chat_id)
     if not chat:
-        raise HTTPException(404, "Chat not found")
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    reply_to_id = data.reply_to if data.reply_to else None
+
+    if reply_to_id is not None:
+        reply_message = await db.get(ChatMessage, reply_to_id)
+        if not reply_message:
+            raise HTTPException(status_code=400, detail="Reply message not found")
+        if reply_message.chat_id != chat_id:
+            raise HTTPException(status_code=400, detail="Reply message belongs to another chat")
 
     message = ChatMessage(
         chat_id=chat_id,
         sender_id=sender_id,
         text=data.text,
         message_type=MessageType.TEXT,
-        reply_to_id=data.reply_to if data.reply_to else None,
+        reply_to_id=reply_to_id,
     )
 
     db.add(message)
     await db.commit()
-    await db.refresh(message)
+
+    result = await db.execute(
+        select(ChatMessage)
+        .options(selectinload(ChatMessage.attachments))
+        .where(ChatMessage.id == message.id)
+    )
+    message = result.scalar_one()
+
+    await manager.send_to_chat(
+        chat_id,
+        {
+            "event": "message:new",
+            "id": message.id,
+            "chat_id": message.chat_id,
+            "text": message.text,
+            "type": message.message_type.value,
+            "sender_id": message.sender_id,
+            "is_seen": message.is_seen,
+            "seen_at": message.seen_at.isoformat() if message.seen_at else None,
+            "media": None,
+            "timestamp": message.created_at.isoformat(),
+        },
+    )
 
     return message
 
@@ -64,14 +90,23 @@ async def send_media(
 ):
     chat = await db.get(Chat, chat_id)
     if not chat:
-        raise HTTPException(404, "Chat not found")
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    reply_to_id = data.reply_to if data.reply_to else None
+
+    if reply_to_id is not None:
+        reply_message = await db.get(ChatMessage, reply_to_id)
+        if not reply_message:
+            raise HTTPException(status_code=400, detail="Reply message not found")
+        if reply_message.chat_id != chat_id:
+            raise HTTPException(status_code=400, detail="Reply message belongs to another chat")
 
     message = ChatMessage(
         chat_id=chat_id,
         sender_id=sender_id,
         text=data.caption,
         message_type=detect_type(data.mime),
-        reply_to_id=data.reply_to if data.reply_to else None,
+        reply_to_id=reply_to_id,
     )
 
     db.add(message)
@@ -84,11 +119,39 @@ async def send_media(
         name=data.file_name,
         size=data.size,
     )
-
     db.add(attachment)
 
     await db.commit()
-    await db.refresh(message)
+
+    result = await db.execute(
+        select(ChatMessage)
+        .options(selectinload(ChatMessage.attachments))
+        .where(ChatMessage.id == message.id)
+    )
+    message = result.scalar_one()
+
+    file = message.attachments[0] if message.attachments else None
+
+    await manager.send_to_chat(
+        chat_id,
+        {
+            "event": "message:new",
+            "id": message.id,
+            "chat_id": message.chat_id,
+            "text": message.text,
+            "type": message.message_type.value,
+            "sender_id": message.sender_id,
+            "is_seen": message.is_seen,
+            "seen_at": message.seen_at.isoformat() if message.seen_at else None,
+            "media": {
+                "url": file.path,
+                "mime": file.mime,
+                "name": file.name,
+                "size": file.size,
+            } if file else None,
+            "timestamp": message.created_at.isoformat(),
+        },
+    )
 
     return message
 
@@ -106,11 +169,12 @@ async def get_chat_messages(
         limit = 100
 
     offset = (page - 1) * limit
+
     total_result = await db.execute(
         select(func.count()).select_from(ChatMessage)
         .where(ChatMessage.chat_id == chat_id)
     )
-    total = total_result.scalar()
+    total = total_result.scalar() or 0
 
     result = await db.execute(
         select(ChatMessage)
@@ -131,24 +195,41 @@ async def get_chat_messages(
     }
 
 
-
 async def update_message(
     db: AsyncSession,
     message_id: int,
     new_text: str,
 ):
     message = await db.get(ChatMessage, message_id)
-
     if not message:
-        raise HTTPException(404, "Message not found")
+        raise HTTPException(status_code=404, detail="Message not found")
 
     message.text = new_text
-
     await db.commit()
-    await db.refresh(message)
+
+    result = await db.execute(
+        select(ChatMessage)
+        .options(selectinload(ChatMessage.attachments))
+        .where(ChatMessage.id == message.id)
+    )
+    message = result.scalar_one()
+
+    await manager.send_to_chat(
+        message.chat_id,
+        {
+            "event": "message:updated",
+            "id": message.id,
+            "chat_id": message.chat_id,
+            "text": message.text,
+            "type": message.message_type.value,
+            "sender_id": message.sender_id,
+            "is_seen": message.is_seen,
+            "seen_at": message.seen_at.isoformat() if message.seen_at else None,
+            "timestamp": message.created_at.isoformat(),
+        },
+    )
 
     return message
-
 
 
 async def delete_message(
@@ -156,11 +237,54 @@ async def delete_message(
     message_id: int,
 ):
     message = await db.get(ChatMessage, message_id)
-
     if not message:
-        raise HTTPException(404, "Message not found")
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    chat_id = message.chat_id
 
     await db.delete(message)
     await db.commit()
 
+    await manager.send_to_chat(
+        chat_id,
+        {
+            "event": "message:deleted",
+            "id": message_id,
+            "chat_id": chat_id,
+        },
+    )
+
     return {"detail": "Message deleted"}
+
+
+async def mark_messages_as_seen(
+    db: AsyncSession,
+    chat_id: int,
+    user_id: int,
+):
+    now = datetime.now(timezone.utc)
+
+    await db.execute(
+        update(ChatMessage)
+        .where(
+            ChatMessage.chat_id == chat_id,
+            ChatMessage.sender_id != user_id,
+            ChatMessage.is_seen.is_(False),
+        )
+        .values(
+            is_seen=True,
+            seen_at=now,
+        )
+    )
+
+    await db.commit()
+
+    await manager.send_to_chat(
+        chat_id,
+        {
+            "event": "message:seen",
+            "chat_id": chat_id,
+            "user_id": user_id,
+            "seen_at": now.isoformat(),
+        },
+    )

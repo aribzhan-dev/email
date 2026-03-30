@@ -20,10 +20,14 @@ class ChatAttachment(Base):
     name: Mapped[str] = mapped_column(String)
     size: Mapped[int] = mapped_column(Integer)
 
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
     message = relationship(
         "app.modules.chat.models.message.ChatMessage",
         back_populates="attachments",
     )
 
     def __repr__(self) -> str:
-        return f"<ChatAttachment id={self.id} file_name={self.file_name!r}>"
+        return f"<ChatAttachment id={self.id} name={self.name!r}>"

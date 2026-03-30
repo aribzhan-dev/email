@@ -5,6 +5,7 @@ from sqlalchemy.orm import aliased
 from app.modules.chat.models.chat import Chat
 from app.modules.chat.models.chat_member import ChatMember
 from app.modules.user.models.user import User
+from app.modules.chat.models.message import ChatMessage
 
 async def create_chat(
     db: AsyncSession,
@@ -66,3 +67,48 @@ async def get_or_create_private_chat(
     await db.refresh(chat)
 
     return chat
+
+
+
+async def get_user_chats(
+    db: AsyncSession,
+    user_id: int,
+):
+    result = await db.execute(
+        select(Chat)
+        .join(ChatMember, ChatMember.chat_id == Chat.id)
+        .where(ChatMember.user_id == user_id)
+    )
+
+    chats = result.scalars().all()
+
+    response = []
+
+    for chat in chats:
+        last_msg_result = await db.execute(
+            select(ChatMessage)
+            .where(ChatMessage.chat_id == chat.id)
+            .order_by(ChatMessage.created_at.desc())
+            .limit(1)
+        )
+        last_message = last_msg_result.scalar_one_or_none()
+
+        unread_result = await db.execute(
+            select(func.count())
+            .select_from(ChatMessage)
+            .where(
+                ChatMessage.chat_id == chat.id,
+                ChatMessage.sender_id != user_id,
+                ChatMessage.is_seen == False,
+            )
+        )
+        unread_count = unread_result.scalar() or 0
+
+        response.append({
+            "chat_id": chat.id,
+            "is_group": chat.is_group,
+            "last_message": last_message,
+            "unread_count": unread_count,
+        })
+
+    return response

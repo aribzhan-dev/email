@@ -1,7 +1,17 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Text, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Text, func, Boolean
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.common.enums.message_type import MessageType
+from app.core.db import Base
+
+
+from datetime import datetime
+from typing import Optional
+
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.common.enums.message_type import MessageType
@@ -13,10 +23,12 @@ class ChatMessage(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     chat_id: Mapped[int] = mapped_column(
-        ForeignKey("chats.id"), index=True
+        ForeignKey("chats.id"),
+        index=True,
     )
     sender_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id"), index=True
+        ForeignKey("users.id"),
+        index=True,
     )
     text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     message_type: Mapped[MessageType] = mapped_column(
@@ -31,6 +43,16 @@ class ChatMessage(Base):
         DateTime(timezone=True),
         server_default=func.now(),
     )
+    is_seen: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+    seen_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     chat = relationship(
         "app.modules.chat.models.chat.Chat",
         back_populates="messages",

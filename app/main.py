@@ -14,12 +14,12 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("🚀 App starting...")
+    print("App starting...")
     asyncio.create_task(start_email_listener())
 
     yield
 
-    print("🛑 App shutting down...")
+    print("App shutting down...")
 
 
 app = FastAPI(

@@ -17,12 +17,12 @@ class MessageResponse(BaseModel):
     id: int
     chat_id: int
     type: MessageType
-
     text: Optional[str] = None
     media: Optional[Media] = None
-
     sender_id: int
     timestamp: datetime
+    is_seen: bool
+    seen_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -40,10 +40,6 @@ class SendMediaSchema(BaseModel):
     mime: str
     size: int
     reply_to: Optional[int] = None
-
-
-class MessageListResponse(BaseModel):
-    messages: List[MessageResponse]
 
 
 class PaginatedMessageResponse(BaseModel):
